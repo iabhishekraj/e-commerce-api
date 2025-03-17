@@ -8,12 +8,108 @@ generator client {
 }
 
 model User {
-  user_id Int @id @default(autoincrement())
-  email String @unique
-  password String
+  user_id      Int       @id @default(autoincrement())
+  email        String    @unique
+  password     String
   phone_number String
-  role String
-  status String? //(Active, Inactive)
-  created_at DateTime @default(now())
+  role         String
+  status       String?   // Active, Inactive
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  default_address_id Int?     @unique
+
+  addresses    Address[] // One-to-Many relation with Address
+  orders       Order[]   // One-to-Many relation with Order
+  cart         Cart?
+  reviews      Review[]  // One-to-Many relation with Review
+}
+
+model Product {
+  product_id  Int       @id @default(autoincrement())
+  name        String
+  description String
+  category_id Int
+  brand       String
+  images      String[]
+  ratings     Float?
+  reviews     Review[]
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  category    Category  @relation(fields: [category_id], references: [category_id])
+}
+
+model Order {
+  order_id     Int      @id @default(autoincrement())
+  user_id      Int
+  items        OrderItem[]
+  total_amount Float
+  status       String   // Pending, Shipped, Delivered, Cancelled
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  user         User     @relation(fields: [user_id], references: [user_id])
+}
+
+model OrderItem {
+  id         Int     @id @default(autoincrement())
+  order_id   Int
+  product_id Int
+  quantity   Int
+  price      Float
+
+  product    Product @relation(fields: [product_id], references: [product_id])
+  order      Order   @relation(fields: [order_id], references: [order_id])
+}
+
+model Cart {
+  cart_id   Int     @id @default(autoincrement())
+  user_id   Int     @unique
+  products  CartItem[]
   updated_at DateTime @updatedAt
+
+  user      User    @relation(fields: [user_id], references: [user_id])
+}
+
+model CartItem {
+  id         Int     @id @default(autoincrement())
+  cart_id    Int
+  product_id Int
+  quantity   Int
+
+  cart       Cart    @relation(fields: [cart_id], references: [cart_id])
+  product    Product @relation(fields: [product_id], references: [product_id])
+}
+
+model Review {
+  review_id  Int     @id @default(autoincrement())
+  user_id    Int
+  product_id Int
+  rating     Int
+  comment    String?
+  created_at DateTime @default(now())
+
+  user       User    @relation(fields: [user_id], references: [user_id])
+  product    Product @relation(fields: [product_id], references: [product_id])
+}
+
+model Category {
+  category_id Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  products    Product[]
+}
+
+model Address {
+  address_id Int      @id @default(autoincrement())
+  user_id    Int
+  street     String
+  city       String
+  state      String
+  zip_code   String
+  country    String
+  created_at DateTime @default(now())
+  updated_at   DateTime  @updatedAt
+
+  user       User     @relation(fields: [user_id], references: [user_id])
 }
