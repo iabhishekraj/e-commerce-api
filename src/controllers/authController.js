@@ -1,15 +1,6 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const prisma = require("../config/prisma");
-const { JWT_SECRET, JWT_EXPIRES_IN } = process.env;
-
-const generateToken = (user) => {
-  return jwt.sign(
-    { user_id: user.user_id, role: user.role, email: user.email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  );
-};
+const AuthService = require("../services/authService");
 
 const register = async (req, res) => {
   const { phone_number, email, password, role } = req.body;
@@ -23,18 +14,19 @@ const register = async (req, res) => {
   try {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    // Save user
-    const user = await prisma.user.create({
-      data: {
-        phone_number,
-        email,
-        password: hashedPassword,
-        role,
-        status: "active",
-      },
-    });
 
-    res.status(201).json({ message: "User registered", user });
+    // Save user
+    const userData = {
+      phone_number,
+      email,
+      password: hashedPassword,
+      role,
+      status: "active",
+    };
+    const user = await AuthService.createUser(userData);
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.status(201).json({ message: "User registered", userWithoutPassword });
   } catch (error) {
     res.status(500).json({ error: "Error registering user", details: error });
   }
@@ -42,7 +34,6 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   const { email, password } = req.body;
-  console.log("email", email);
 
   if (!email || !password) {
     return res.status(400).json({ error: "All fields are required" });
@@ -50,19 +41,19 @@ const login = async (req, res) => {
 
   try {
     // Find user
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const { token } = await AuthService.loginUser(email, password);
 
-    // Verify password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
-
-    // Generate JWT
-    const token = generateToken(user);
     res.cookie("token", token, { httpOnly: true, secure: true });
 
     res.status(200).json({ message: "Logged in successfully", token });
   } catch (error) {
+    if (
+      error.message === "User not found" ||
+      error.message === "Invalid credentials"
+    ) {
+      return res.status(400).json({ error: error.message });
+    }
+
     res.status(500).json({ error: "Error logging in", details: error });
   }
 };
